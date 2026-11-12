@@ -29,8 +29,8 @@ Parameters:
     Description: "all = every running resource must be over the limit; any = one is enough."
   Schedule:
     Type: String
-    Default: rate(1 hour)
-    Description: EventBridge schedule expression, for example rate(1 hour) or rate(15 minutes).
+    Default: cron(30 * * * ? *)
+    Description: "EventBridge schedule, in UTC. cron(30 * * * ? *) = every hour at :30 UTC, which is :00 on India clocks (IST = UTC+5:30). Use cron(0 * * * ? *) for :00 UTC."
   NotificationEmail:
     Type: String
     Default: ""

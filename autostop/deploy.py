@@ -59,7 +59,7 @@ def main(argv=None) -> int:
     ap.add_argument("--stack", default=STACK)
     ap.add_argument("--threshold", default="12")
     ap.add_argument("--rule", default="all", choices=["all", "any"])
-    ap.add_argument("--schedule", default="rate(1 hour)")
+    ap.add_argument("--schedule", default="cron(30 * * * ? *)", help="UTC; the default fires at :00 IST, every hour")
     ap.add_argument("--email", default="")
     ap.add_argument("--live", action="store_true", help="actually stop things (default is dry run)")
     ap.add_argument("--plan", action="store_true", help="print what would be deployed and exit")

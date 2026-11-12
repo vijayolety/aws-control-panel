@@ -382,4 +382,4 @@ def test_the_stack_creates_in_fake_aws_dry_run_by_default(tmp_path):
     env = lam.get_function_configuration(FunctionName="l180-auto-stop")
     assert env["Environment"]["Variables"]["DRY_RUN"] == "true" and env["Timeout"] == 900
     rules = boto3.client("events", region_name=REGION).list_rules(NamePrefix="l180-auto-stop")["Rules"]
-    assert rules and rules[0]["ScheduleExpression"] == "rate(1 hour)"
+    assert rules and rules[0]["ScheduleExpression"] == "cron(30 * * * ? *)"

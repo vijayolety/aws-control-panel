@@ -1,6 +1,6 @@
 # Auto-stop (Lambda + EventBridge)
 
-An hourly Lambda that stops client environments that have been up too long. It does not depend on the control panel or Railway.
+An hourly Lambda (on the hour in IST) that stops client environments that have been up too long. It does not depend on the control panel or Railway.
 
 ## Rules
 * Per client in the client list: when **every running resource** (EC2 and RDS) has been up for **12 hours or more**, it stops the
@@ -22,7 +22,7 @@ An hourly Lambda that stops client environments that have been up too long. It d
    (lines start with `auto-stop {...}`; `would_stop` is what live mode would do).
 5. When a few runs look right, redeploy with `--live`. A manual live test: invoke with payload `{"dry_run": false}`.
 
-Redeploying is the same command (it updates the stack). Other options: `--threshold`, `--rule any`, `--schedule "rate(15 minutes)"`.
+Redeploying is the same command (it updates the stack). Other options: `--threshold`, `--rule any`, `--schedule "cron(0/15 * * * ? *)"`.
 
 ## Cost
 Effectively $0 a month: about 730 runs a month sit inside the Lambda and EventBridge free tiers; only the logs cost anything (cents).
