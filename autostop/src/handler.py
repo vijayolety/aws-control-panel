@@ -43,7 +43,7 @@ class ConfigError(Exception):
 @dataclass(frozen=True)
 class Config:
     clients: list[dict]
-    threshold_hours: float = 12.0
+    threshold_hours: float = 10.0
     dry_run: bool = True
     rule: str = "all"                    # "all": every running resource is over the limit; "any": at least one is
     sns_topic_arn: str = ""
@@ -87,7 +87,7 @@ def parse_clients(raw: str | None) -> list[dict]:
 def load_config(env=None) -> Config:
     env = os.environ if env is None else env
     try:
-        hours = float(env.get("THRESHOLD_HOURS") or 12)
+        hours = float(env.get("THRESHOLD_HOURS") or 10)
     except ValueError:
         raise ConfigError("THRESHOLD_HOURS must be a number") from None
     if not 0 < hours <= MAX_THRESHOLD_HOURS:

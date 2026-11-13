@@ -70,7 +70,7 @@ def events(monkeypatch):
 
 def test_defaults_are_the_safe_ones():
     c = h.load_config({"CLIENTS_JSON": clients_json(ec2=["i-1"])})
-    assert c.dry_run is True and c.threshold_hours == 12 and c.rule == "all"
+    assert c.dry_run is True and c.threshold_hours == 10 and c.rule == "all"
 
 
 @pytest.mark.parametrize("env", [
@@ -383,3 +383,35 @@ def test_the_stack_creates_in_fake_aws_dry_run_by_default(tmp_path):
     assert env["Environment"]["Variables"]["DRY_RUN"] == "true" and env["Timeout"] == 900
     rules = boto3.client("events", region_name=REGION).list_rules(NamePrefix="l180-auto-stop")["Rules"]
     assert rules and rules[0]["ScheduleExpression"] == "cron(30 * * * ? *)"
+
+
+@mock_aws
+def test_several_recipients_and_a_redeploy_never_drops_them(tmp_path):
+    f = tmp_path / "clients.json"
+    f.write_text(json.dumps({"clients": [{"slug": "acme", "region": REGION, "ec2_instances": [{"id": "i-1"}]}]}))
+    boto3.client("s3", region_name=REGION).create_bucket(Bucket="code", CreateBucketConfiguration={"LocationConstraint": REGION})
+    d = _deploy_module()
+    base = ["--bucket", "code", "--clients", str(f), "--region", REGION]
+    assert d.main(base + ["--email", "a@example.com"]) == 0
+    assert d.main(base + ["--also-notify", "b@example.com", "--also-notify", "c@example.com", "--also-notify", "a@example.com"]) == 0
+    cf = boto3.client("cloudformation", region_name=REGION)      # moto does not evaluate the template's conditions, so check the inputs
+
+    def params():
+        return {p["ParameterKey"]: p["ParameterValue"] for p in cf.describe_stacks(StackName="l180-auto-stop")["Stacks"][0]["Parameters"]}
+
+    assert params()["NotificationEmail"] == "a@example.com"
+    assert params()["AdditionalEmails"] == "b@example.com,c@example.com"                   # a@ was listed twice, kept once
+    assert d.main(base + ["--live"]) == 0                                                  # no email flags: nobody is dropped
+    assert params()["NotificationEmail"] == "a@example.com" and params()["AdditionalEmails"] == "b@example.com,c@example.com"
+    assert params()["DryRun"] == "false"
+
+
+def test_bad_or_too_many_addresses_are_refused(tmp_path):
+    f = tmp_path / "clients.json"
+    f.write_text(json.dumps({"clients": [{"slug": "acme", "region": REGION, "ec2_instances": [{"id": "i-1"}]}]}))
+    base = ["--bucket", "b", "--clients", str(f), "--region", REGION, "--plan"]
+    d = _deploy_module()
+    with pytest.raises(SystemExit):
+        d.main(base + ["--also-notify", "not-an-email"])
+    with pytest.raises(SystemExit):
+        d.main(base + sum((["--also-notify", f"u{i}@example.com"] for i in range(5)), []))

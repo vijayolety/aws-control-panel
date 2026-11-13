@@ -3,7 +3,7 @@
 An hourly Lambda (on the hour in IST) that stops client environments that have been up too long. It does not depend on the control panel or Railway.
 
 ## Rules
-* Per client in the client list: when **every running resource** (EC2 and RDS) has been up for **12 hours or more**, it stops the
+* Per client in the client list: when **every running resource** (EC2 and RDS) has been up for **10 hours or more**, it stops the
   environment in the panel's safe order: applications, wait until they are stopped, then databases.
   (`StopRule=any` stops when at least one resource is over the limit instead.)
 * Uptime is "since the last start": EC2 `LaunchTime`; RDS the newest `DB instance started` event (14-day RDS event limit, so the

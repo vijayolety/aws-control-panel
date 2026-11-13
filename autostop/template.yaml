@@ -13,7 +13,7 @@ Parameters:
     MaxLength: 4096
   ThresholdHours:
     Type: Number
-    Default: 12
+    Default: 10
     MinValue: 1
     MaxValue: 336
     Description: Stop an environment once everything running in it has been up this many hours (max 336 = 14 days).
@@ -35,6 +35,10 @@ Parameters:
     Type: String
     Default: ""
     Description: Optional. Receives an email whenever something is stopped (or would be, in dry run) or a run fails. Confirm the subscription email.
+  AdditionalEmails:
+    Type: String
+    Default: ""
+    Description: Optional. Up to 4 more notification addresses, comma separated. Each must confirm its subscription email.
   CodeBucket:
     Type: String
     Description: S3 bucket holding the Lambda zip (deploy.py uploads it for you).
@@ -48,16 +52,55 @@ Parameters:
 
 Conditions:
   HasEmail: !Not [!Equals [!Ref NotificationEmail, ""]]
+  HasExtra1: !Not [!Equals [!Select [0, !Split [",", !Sub "${AdditionalEmails},,,,"]], ""]]
+  HasExtra2: !Not [!Equals [!Select [1, !Split [",", !Sub "${AdditionalEmails},,,,"]], ""]]
+  HasExtra3: !Not [!Equals [!Select [2, !Split [",", !Sub "${AdditionalEmails},,,,"]], ""]]
+  HasExtra4: !Not [!Equals [!Select [3, !Split [",", !Sub "${AdditionalEmails},,,,"]], ""]]
+  HasAnyEmail: !Or [!Condition HasEmail, !Condition HasExtra1, !Condition HasExtra2, !Condition HasExtra3, !Condition HasExtra4]
 
 Resources:
   Topic:
     Type: AWS::SNS::Topic
-    Condition: HasEmail
+    Condition: HasAnyEmail
     Properties:
       TopicName: l180-auto-stop
-      Subscription:
-        - Protocol: email
-          Endpoint: !Ref NotificationEmail
+      Subscription: !If
+        - HasEmail
+        - - Protocol: email
+            Endpoint: !Ref NotificationEmail
+        - !Ref AWS::NoValue
+
+  ExtraSubscription1:
+    Type: AWS::SNS::Subscription
+    Condition: HasExtra1
+    Properties:
+      TopicArn: !Ref Topic
+      Protocol: email
+      Endpoint: !Select [0, !Split [",", !Sub "${AdditionalEmails},,,,"]]
+
+  ExtraSubscription2:
+    Type: AWS::SNS::Subscription
+    Condition: HasExtra2
+    Properties:
+      TopicArn: !Ref Topic
+      Protocol: email
+      Endpoint: !Select [1, !Split [",", !Sub "${AdditionalEmails},,,,"]]
+
+  ExtraSubscription3:
+    Type: AWS::SNS::Subscription
+    Condition: HasExtra3
+    Properties:
+      TopicArn: !Ref Topic
+      Protocol: email
+      Endpoint: !Select [2, !Split [",", !Sub "${AdditionalEmails},,,,"]]
+
+  ExtraSubscription4:
+    Type: AWS::SNS::Subscription
+    Condition: HasExtra4
+    Properties:
+      TopicArn: !Ref Topic
+      Protocol: email
+      Endpoint: !Select [3, !Split [",", !Sub "${AdditionalEmails},,,,"]]
 
   LogGroup:
     Type: AWS::Logs::LogGroup
@@ -101,7 +144,7 @@ Resources:
                 Action: sts:AssumeRole
                 Resource: !Sub "arn:${AWS::Partition}:iam::*:role/l180-control-panel"
               - !If
-                - HasEmail
+                - HasAnyEmail
                 - Sid: Notify
                   Effect: Allow
                   Action: sns:Publish
@@ -128,7 +171,7 @@ Resources:
           THRESHOLD_HOURS: !Ref ThresholdHours
           DRY_RUN: !Ref DryRun
           STOP_RULE: !Ref StopRule
-          SNS_TOPIC_ARN: !If [HasEmail, !Ref Topic, ""]
+          SNS_TOPIC_ARN: !If [HasAnyEmail, !Ref Topic, ""]
 
   ScheduleRule:
     Type: AWS::Events::Rule
